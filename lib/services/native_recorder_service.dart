@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
-import 'package:math_studio/services/native_recorder_service.dart';
 
 class NativeRecorderService {
   static const MethodChannel _channel = MethodChannel('math_studio/recorder');
   static const EventChannel _events = EventChannel(
     'math_studio/recorder_events',
   );
+
   static void listenEvents(void Function(String event) onEvent) {
     _events.receiveBroadcastStream().listen((event) {
       if (event is String) {
@@ -14,16 +14,23 @@ class NativeRecorderService {
     });
   }
 
-  static Future<void> startRecording({
+  static Future<String?> startRecording({
     required String resolution,
+    int? width,
+    int? height,
     required int fps,
+    required String audioMode,
   }) async {
-    final result = await _channel.invokeMethod('startRecording', {
-      "resolution": resolution,
-      "fps": fps,
+    final result = await _channel.invokeMethod<String>('startRecording', {
+      'resolution': resolution,
+      'width': width,
+      'height': height,
+      'fps': fps,
+      'audioMode': audioMode,
     });
 
     print(result);
+    return result;
   }
 
   static Future<void> pauseRecording() async {
@@ -35,10 +42,10 @@ class NativeRecorderService {
   }
 
   static Future<void> stopRecording() async {
-    print("STOP BUTTON PRESSED");
+    print('STOP BUTTON PRESSED');
 
     await _channel.invokeMethod('stopRecording');
 
-    print("STOP SENT");
+    print('STOP SENT');
   }
 }

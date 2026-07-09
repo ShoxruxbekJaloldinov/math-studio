@@ -6,7 +6,8 @@ class SettingCard extends StatelessWidget {
   final String value;
   final VoidCallback onTap;
 
-  const SettingCard({super.key, 
+  const SettingCard({
+    super.key,
     required this.icon,
     required this.title,
     required this.value,
@@ -28,29 +29,26 @@ class SettingCard extends StatelessWidget {
           border: Border.all(color: Colors.white24),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: Colors.white, size: 22),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              ],
+            Icon(icon, color: Colors.white, size: 22),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(color: Colors.white, fontSize: 18),
             ),
-
-            Row(
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(color: Colors.white70, fontSize: 18),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right, color: Colors.white54),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: const TextStyle(color: Colors.white70, fontSize: 18),
+              ),
             ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Colors.white54),
           ],
         ),
       ),

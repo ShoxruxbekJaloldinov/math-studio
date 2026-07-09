@@ -19,6 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool showFloatingPanel = false;
+
   @override
   Widget build(BuildContext context) {
     final controller = Provider.of<RecorderController>(context);
@@ -40,250 +41,282 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  RecordButton(
-                    isRecording: controller.isRecording,
-                    onTap: () async {
-                      if (!controller.isRecording) {
-                        await NativeRecorderService.startRecording(
-                          resolution: controller.settings.resolution,
-                          fps: controller.settings.fps,
-                        );
-                        controller.toggleRecording();
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                  Text(
-                    controller.isRecording ? "Recording..." : "Start Recording",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (controller.isRecording) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      controller.formattedTime,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            RecordButton(
+                              isRecording: controller.isRecording,
+                              onTap: () async {
+                                if (!controller.isRecording) {
+                                  final resolution =
+                                      controller.selectedResolution;
+                                  final startResult =
+                                      await NativeRecorderService.startRecording(
+                                        resolution: resolution.key,
+                                        width: resolution.width,
+                                        height: resolution.height,
+                                        fps: controller.settings.fps,
+                                        audioMode: controller.audioModeKey,
+                                      );
+                                  if (startResult == "GRANTED") {
+                                    controller.toggleRecording();
+                                  }
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 30),
+                            Text(
+                              controller.isRecording
+                                  ? "Recording..."
+                                  : "Start Recording",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (controller.isRecording) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                controller.formattedTime,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 25),
+
+                            if (controller.isRecording)
+                              ControlPanel(
+                                isPaused: controller.isPaused,
+                                onPause: () {
+                                  controller.pauseRecording();
+                                },
+                                onResume: () {
+                                  controller.resumeRecording();
+                                },
+                                onStop: () {
+                                  controller.stopRecording();
+                                },
+                              ),
+                            const SizedBox(height: 40),
+
+                            SettingCard(
+                              icon: Icons.videocam_outlined,
+                              title: "Resolution",
+                              value: controller.selectedResolution.label,
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (context) {
+                                    return SafeArea(
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            for (final resolution
+                                                in RecordingResolution.all)
+                                              ListTile(
+                                                title: Text(resolution.label),
+                                                onTap: () {
+                                                  controller.setResolution(
+                                                    resolution.key,
+                                                  );
+                                                  Navigator.pop(context);
+                                                },
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+
+                            SettingCard(
+                              icon: Icons.speed,
+                              title: "FPS",
+                              value: controller.settings.fps.toString(),
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (context) {
+                                    return SafeArea(
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListTile(
+                                              title: const Text("30 FPS"),
+                                              onTap: () {
+                                                controller.setFps(30);
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              title: const Text("60 FPS"),
+                                              onTap: () {
+                                                controller.setFps(60);
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              title: const Text("90 FPS"),
+                                              onTap: () {
+                                                controller.setFps(90);
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              title: const Text("120 FPS"),
+                                              onTap: () {
+                                                controller.setFps(120);
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+
+                            SettingCard(
+                              icon: Icons.mic,
+                              title: "Audio",
+                              value: controller.audioText,
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (context) {
+                                    return SafeArea(
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListTile(
+                                              leading: const Icon(Icons.mic),
+                                              title: const Text("Microphone"),
+                                              onTap: () {
+                                                controller.setAudioMode(
+                                                  AudioMode.microphone,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(Icons.speaker),
+                                              title: const Text("Internal Audio"),
+                                              onTap: () {
+                                                controller.setAudioMode(
+                                                  AudioMode.internal,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(Icons.graphic_eq),
+                                              title: const Text(
+                                                "Microphone + Internal",
+                                              ),
+                                              onTap: () {
+                                                controller.setAudioMode(
+                                                  AudioMode.both,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              leading: const Icon(Icons.volume_off),
+                                              title: const Text("Off"),
+                                              onTap: () {
+                                                controller.setAudioMode(
+                                                  AudioMode.off,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+
+                            SettingCard(
+                              icon: Icons.layers,
+                              title: "Floating Panel",
+                              value: controller.floatingPanelText,
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (context) {
+                                    return SafeArea(
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListTile(
+                                              title: const Text("Off"),
+                                              onTap: () {
+                                                controller.setFloatingPanel(
+                                                  FloatingPanelMode.off,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              title: const Text("Compact"),
+                                              onTap: () {
+                                                controller.setFloatingPanel(
+                                                  FloatingPanelMode.compact,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                            ListTile(
+                                              title: const Text("Expanded"),
+                                              onTap: () {
+                                                controller.setFloatingPanel(
+                                                  FloatingPanelMode.expanded,
+                                                );
+                                                Navigator.pop(context);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 25),
-
-                  if (controller.isRecording)
-                    ControlPanel(
-                      isPaused: controller.isPaused,
-                      onPause: () {
-                        controller.pauseRecording();
-                      },
-                      onResume: () {
-                        controller.resumeRecording();
-                      },
-                      onStop: () {
-                        controller.stopRecording();
-                      },
-                    ),
-                  const SizedBox(height: 40),
-
-                  SettingCard(
-                    icon: Icons.videocam_outlined,
-                    title: "Resolution",
-                    value: controller.settings.resolution,
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title: const Text("1280 × 720"),
-                                  onTap: () {
-                                    controller.setResolution("1280 × 720");
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("1920 × 1080"),
-                                  onTap: () {
-                                    controller.setResolution("1920 × 1080");
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("2560 × 1440"),
-                                  onTap: () {
-                                    controller.setResolution("2560 × 1440");
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
                   ),
-
-                  SettingCard(
-                    icon: Icons.speed,
-                    title: "FPS",
-                    value: controller.settings.fps.toString(),
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title: const Text("30 FPS"),
-                                  onTap: () {
-                                    controller.setFps(30);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("60 FPS"),
-                                  onTap: () {
-                                    controller.setFps(60);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("90 FPS"),
-                                  onTap: () {
-                                    controller.setFps(90);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("120 FPS"),
-                                  onTap: () {
-                                    controller.setFps(120);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-
-                  SettingCard(
-                    icon: Icons.mic,
-                    title: "Audio",
-                    value: controller.audioText,
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  leading: const Icon(Icons.mic),
-                                  title: const Text("Microphone"),
-                                  onTap: () {
-                                    controller.setAudioMode(
-                                      AudioMode.microphone,
-                                    );
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.speaker),
-                                  title: const Text("Internal Audio"),
-                                  onTap: () {
-                                    controller.setAudioMode(AudioMode.internal);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.graphic_eq),
-                                  title: const Text("Microphone + Internal"),
-                                  onTap: () {
-                                    controller.setAudioMode(AudioMode.both);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  leading: const Icon(Icons.volume_off),
-                                  title: const Text("Off"),
-                                  onTap: () {
-                                    controller.setAudioMode(AudioMode.off);
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-
-                  SettingCard(
-                    icon: Icons.layers,
-                    title: "Floating Panel",
-                    value: controller.floatingPanelText,
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  title: const Text("Off"),
-                                  onTap: () {
-                                    controller.setFloatingPanel(
-                                      FloatingPanelMode.off,
-                                    );
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("Compact"),
-                                  onTap: () {
-                                    controller.setFloatingPanel(
-                                      FloatingPanelMode.compact,
-                                    );
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                ListTile(
-                                  title: const Text("Expanded"),
-                                  onTap: () {
-                                    controller.setFloatingPanel(
-                                      FloatingPanelMode.expanded,
-                                    );
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ),
           if (controller.isRecording &&
@@ -335,3 +368,4 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+

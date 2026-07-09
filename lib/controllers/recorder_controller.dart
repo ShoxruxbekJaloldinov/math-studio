@@ -14,6 +14,21 @@ class RecorderController extends ChangeNotifier {
         seconds = 0;
 
         notifyListeners();
+      } else if (event == "PAUSE") {
+        isPaused = true;
+        timer?.cancel();
+
+        notifyListeners();
+      } else if (event == "RESUME") {
+        isPaused = false;
+        timer?.cancel();
+
+        timer = Timer.periodic(const Duration(seconds: 1), (_) {
+          seconds++;
+          notifyListeners();
+        });
+
+        notifyListeners();
       }
     });
   }
@@ -80,6 +95,9 @@ class RecorderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  RecordingResolution get selectedResolution =>
+      RecordingResolution.fromKey(settings.resolution);
+
   void setResolution(String resolution) {
     settings.resolution = resolution;
     notifyListeners();
@@ -99,6 +117,8 @@ class RecorderController extends ChangeNotifier {
     settings.floatingPanelMode = mode;
     notifyListeners();
   }
+
+  String get audioModeKey => settings.audioMode.name;
 
   String get audioText {
     switch (settings.audioMode) {
