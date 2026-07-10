@@ -15,6 +15,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Environment
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import java.io.File
@@ -23,6 +24,13 @@ class RecorderService : Service() {
     companion object {
         const val ACTION_RECORDING_STOPPED =
             "com.example.math_studio.RECORDING_STOPPED"
+        const val ACTION_RECORDING_STATUS =
+            "com.example.math_studio.RECORDING_STATUS"
+        const val EXTRA_RECORDING_STATUS = "status"
+        const val EXTRA_RECORDING_ELAPSED = "elapsedMillis"
+        const val STATUS_PAUSE = "PAUSE"
+        const val STATUS_RESUME = "RESUME"
+        const val STATUS_STOP = "STOP"
     }
 
     private val channelId = "recording_channel"
@@ -41,6 +49,10 @@ class RecorderService : Service() {
     private var videoDpi = 0
     private var videoFps = 30
     private var audioMode = "microphone"
+
+    private var recordingStartRealtime = 0L
+    private var recordingElapsedBeforePause = 0L
+    private var recordingPauseStartRealtime = 0L
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
@@ -238,6 +250,11 @@ class RecorderService : Service() {
         recorderStarted = true
         recorderPaused = false
 
+        recordingStartRealtime = SystemClock.elapsedRealtime()
+        recordingElapsedBeforePause = 0L
+        recordingPauseStartRealtime = 0L
+        sendRecordingStatus(STATUS_RESUME, 0L)
+
         Log.d("RecorderService", "Recording started")
     }
 
@@ -255,7 +272,10 @@ class RecorderService : Service() {
         try {
             mediaRecorder?.pause()
             recorderPaused = true
-            MainActivity.eventSink?.success("PAUSE")
+            recordingPauseStartRealtime = SystemClock.elapsedRealtime()
+            recordingElapsedBeforePause = recordingPauseStartRealtime - recordingStartRealtime
+            MainActivity.eventSink?.success(STATUS_PAUSE)
+            sendRecordingStatus(STATUS_PAUSE, recordingElapsedBeforePause)
             Log.d("RecorderService", "Recording paused")
         } catch (e: IllegalStateException) {
             Log.e("RecorderService", "Pause failed", e)
@@ -276,7 +296,10 @@ class RecorderService : Service() {
         try {
             mediaRecorder?.resume()
             recorderPaused = false
-            MainActivity.eventSink?.success("RESUME")
+            recordingStartRealtime = SystemClock.elapsedRealtime() - recordingElapsedBeforePause
+            recordingPauseStartRealtime = 0L
+            MainActivity.eventSink?.success(STATUS_RESUME)
+            sendRecordingStatus(STATUS_RESUME, recordingElapsedBeforePause)
             Log.d("RecorderService", "Recording resumed")
         } catch (e: IllegalStateException) {
             Log.e("RecorderService", "Resume failed", e)
@@ -284,6 +307,12 @@ class RecorderService : Service() {
     }
 
     private fun stopCapture() {
+        val elapsedMillis = if (recorderPaused) {
+            recordingPauseStartRealtime - recordingStartRealtime
+        } else {
+            SystemClock.elapsedRealtime() - recordingStartRealtime
+        }
+        sendRecordingStatus(STATUS_STOP, elapsedMillis)
         releaseRecorderResources(stopRecorder = true, stopProjection = true)
         notifyFlutterStopped()
 
@@ -330,8 +359,16 @@ class RecorderService : Service() {
         }
     }
 
+    private fun sendRecordingStatus(status: String, elapsedMillis: Long) {
+        val statusIntent = Intent(ACTION_RECORDING_STATUS).apply {
+            putExtra(EXTRA_RECORDING_STATUS, status)
+            putExtra(EXTRA_RECORDING_ELAPSED, elapsedMillis)
+        }
+        sendBroadcast(statusIntent)
+    }
+
     private fun notifyFlutterStopped() {
-        MainActivity.eventSink?.success("STOP")
+        MainActivity.eventSink?.success(STATUS_STOP)
         sendBroadcast(Intent(ACTION_RECORDING_STOPPED))
     }
 
