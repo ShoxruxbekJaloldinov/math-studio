@@ -4,29 +4,29 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
+    android:padding="8dp"
     android:background="@drawable/floating_panel_background"
     android:elevation="12dp"
     android:clipToPadding="false"
     android:gravity="center_vertical"
-    android:minWidth="260dp">
+    android:minWidth="190dp">
 
     <View
         android:id="@+id/statusDot"
-        android:layout_width="10dp"
-        android:layout_height="10dp"
-        android:layout_marginEnd="10dp"
+        android:layout_width="7dp"
+        android:layout_height="7dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/record_dot" />
 
     <Button
         android:id="@+id/btnPause"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:layout_marginEnd="12dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="8dp"
         android:background="@drawable/button_circle_accent"
         android:text="⏸"
         android:textColor="#FF111111"
-        android:textSize="24sp"
+        android:textSize="18sp"
         android:fontFamily="sans-serif-medium"
         android:stateListAnimator="@null"
         android:insetLeft="0dp"
@@ -34,25 +34,33 @@
         android:insetTop="0dp"
         android:insetBottom="0dp" />
 
-    <TextView
-        android:id="@+id/tvTimer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="18dp"
-        android:text="00:00"
-        android:textColor="#FFFFFFFF"
-        android:textSize="18sp"
-        android:fontFamily="monospace"
-        android:textStyle="bold" />
+    <FrameLayout
+        android:layout_width="46dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/button_circle_gray"
+        android:foregroundGravity="center">
+
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="00:00"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:textStyle="bold" />
+    </FrameLayout>
 
     <Button
         android:id="@+id/btnStop"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:background="@drawable/button_circle_stop"
         android:text="■"
         android:textColor="#FF111111"
-        android:textSize="24sp"
+        android:textSize="18sp"
         android:fontFamily="sans-serif-medium"
         android:stateListAnimator="@null"
         android:insetLeft="0dp"
