@@ -13,6 +13,8 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -25,6 +27,12 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import java.io.File
+import kotlin.math.roundToInt
+
+enum class VideoCodec {
+    H264,
+    HEVC
+}
 
 class RecorderService : Service() {
     // Audio sozlamalarini markaziy va oson boshqarish uchun yagona konfiguratsiya modeli.
@@ -57,6 +65,24 @@ class RecorderService : Service() {
         private const val DEFAULT_CHANNEL_COUNT = 1
         private const val DEFAULT_BITRATE = 192000
         private const val DEFAULT_SAMPLE_RATE = 44100
+
+        internal fun calculateVideoBitrate(
+            width: Int,
+            height: Int,
+            fps: Int,
+            codec: VideoCodec
+        ): Int {
+            val safeWidth = width.coerceAtLeast(1)
+            val safeHeight = height.coerceAtLeast(1)
+            val safeFps = fps.coerceAtLeast(1)
+            val referencePixels = 1920.0 * 1080.0
+            val pixelCount = safeWidth.toDouble() * safeHeight.toDouble()
+            val resolutionFactor = (pixelCount / referencePixels).coerceAtLeast(0.44)
+            val fpsFactor = 1.0 + 0.50 * ((safeFps.toDouble() / 30.0) - 1.0)
+            val codecFactor = if (codec == VideoCodec.HEVC) 0.70 else 1.0
+            val calculatedBitrate = (8_000_000.0 * resolutionFactor * fpsFactor * codecFactor).roundToInt()
+            return calculatedBitrate.coerceIn(2_000_000, 100_000_000)
+        }
     }
 
     private val channelId = "recording_channel"
@@ -75,6 +101,7 @@ class RecorderService : Service() {
     private var videoHeight = 1080
     private var videoDpi = 0
     private var videoFps = 30
+    private var videoCodec: VideoCodec = VideoCodec.H264
     private var audioMode = "microphone"
 
     private var recordingStartRealtime = 0L
@@ -124,6 +151,7 @@ class RecorderService : Service() {
         videoDpi = intent?.getIntExtra("dpi", resources.displayMetrics.densityDpi)
             ?: resources.displayMetrics.densityDpi
         videoFps = intent?.getIntExtra("fps", 30) ?: 30
+        videoCodec = resolveVideoCodec(intent?.getStringExtra("videoCodec"))
         audioMode = intent?.getStringExtra("audioMode") ?: "microphone"
 
         startRecordingNotification()
@@ -135,6 +163,7 @@ class RecorderService : Service() {
         logAudioDiag(
             "Video = ${videoWidth}x${videoHeight}, dpi=$videoDpi @ $videoFps FPS, audio=$audioMode"
         )
+        logVideoCodecSelection()
 
         if (data == null || resultCode != Activity.RESULT_OK) {
             logAudioDiagError("MediaProjection data missing or denied")
@@ -216,8 +245,9 @@ class RecorderService : Service() {
                 setVideoSource(MediaRecorder.VideoSource.SURFACE)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setOutputFile(outputFile.absolutePath)
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                setVideoEncodingBitRate(videoBitrate())
+                val selectedVideoEncoder = selectVideoEncoder()
+                setVideoEncoder(selectedVideoEncoder)
+                setVideoEncodingBitRate(calculateVideoBitrate(videoCodec))
                 setVideoFrameRate(videoFps)
                 setVideoSize(videoWidth, videoHeight)
                 prepare()
@@ -264,8 +294,9 @@ class RecorderService : Service() {
                     setAudioSamplingRate(attemptConfig.sampleRate)
                     setAudioEncodingBitRate(attemptConfig.bitrate)
                     setAudioChannels(attemptConfig.channelCount)
-                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                    setVideoEncodingBitRate(videoBitrate())
+                    val selectedVideoEncoder = selectVideoEncoder()
+                    setVideoEncoder(selectedVideoEncoder)
+                    setVideoEncodingBitRate(calculateVideoBitrate(videoCodec))
                     setVideoFrameRate(videoFps)
                     setVideoSize(videoWidth, videoHeight)
                     applyPreferredDeviceIfSupported(preferredDevice)
@@ -301,6 +332,61 @@ class RecorderService : Service() {
             @Suppress("DEPRECATION")
             MediaRecorder()
         }
+    }
+
+    private fun resolveVideoCodec(value: String?): VideoCodec {
+        return when (value?.trim()?.uppercase()) {
+            "HEVC" -> VideoCodec.HEVC
+            "H264", "H.264" -> VideoCodec.H264
+            else -> VideoCodec.H264
+        }
+    }
+
+    private fun logVideoCodecSelection() {
+        logAudioDiag("Selected codec = ${videoCodec.name}")
+        if (videoCodec == VideoCodec.HEVC) {
+            val hevcSupported = isHevcSupported()
+            logAudioDiag("Hardware encoder found = $hevcSupported")
+            if (!hevcSupported) {
+                logAudioDiag("HEVC unavailable")
+                logAudioDiag("Fallback -> H264")
+            }
+        }
+    }
+
+    private fun selectVideoEncoder(): Int {
+        return if (videoCodec == VideoCodec.HEVC) {
+            if (isHevcSupported()) {
+                logAudioDiag("Using hardware HEVC encoder")
+                MediaRecorder.VideoEncoder.HEVC
+            } else {
+                videoCodec = VideoCodec.H264
+                logAudioDiag("HEVC not supported. Falling back to H264.")
+                MediaRecorder.VideoEncoder.H264
+            }
+        } else {
+            logAudioDiag("Using hardware H264 encoder")
+            MediaRecorder.VideoEncoder.H264
+        }
+    }
+
+    private fun isHevcSupported(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return false
+        }
+
+        val codecList = MediaCodecList(MediaCodecList.ALL_CODECS)
+        return codecList.codecInfos.any { codecInfo ->
+            codecInfo.isEncoder && codecInfo.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+        }
+    }
+
+    private fun calculateVideoBitrate(codec: VideoCodec): Int {
+        val bitrate = calculateVideoBitrate(videoWidth, videoHeight, videoFps, codec)
+        logAudioDiag(
+            "Calculated video bitrate = ${bitrate}bps for ${videoWidth}x${videoHeight} @ ${videoFps}fps codec=${codec.name}"
+        )
+        return bitrate
     }
 
     private fun applyPreferredDeviceIfSupported(device: AudioDeviceInfo?) {
@@ -570,11 +656,6 @@ class RecorderService : Service() {
     private fun recordsMicrophone(): Boolean {
         val normalized = (audioMode ?: "").trim().lowercase()
         return normalized == "microphone" || normalized == "both" || normalized == "mic" || normalized == "camcorder" || normalized == "voice_recognition" || normalized == "voice-recognition" || normalized == "voice_communication" || normalized == "voice-communication" || normalized == "unprocessed"
-    }
-
-    private fun videoBitrate(): Int {
-        val calculated = (videoWidth * videoHeight * videoFps * 0.08).toInt()
-        return calculated.coerceIn(8_000_000, 40_000_000)
     }
 
     private fun startCapture() {

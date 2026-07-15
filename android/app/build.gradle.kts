@@ -32,6 +32,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    dependencies {
+        testImplementation("junit:junit:4.13.2")
+    }
 }
 
 kotlin {
